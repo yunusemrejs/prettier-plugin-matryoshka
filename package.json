@@ -1,0 +1,68 @@
+{
+  "name": "prettier-plugin-matryoshka",
+  "version": "0.1.0",
+  "description": "Recursive Prettier plugin for embedded code formatting across nested multi-language blocks.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yunusemrejs/prettier-plugin-matryoshka.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yunusemrejs/prettier-plugin-matryoshka/issues"
+  },
+  "homepage": "https://github.com/yunusemrejs/prettier-plugin-matryoshka#readme",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": {
+      "import": "./src/index.js",
+      "default": "./src/index.js"
+    }
+  },
+  "files": [
+    "src"
+  ],
+  "keywords": [
+    "prettier",
+    "prettier-plugin",
+    "formatter",
+    "developer-tooling",
+    "embedded-code-formatting",
+    "embedded-language-support",
+    "multi-language-support",
+    "nested-language-formatting",
+    "recursive-formatting",
+    "dynamic-parser-dispatch",
+    "stack-based-parser",
+    "template-formatting",
+    "syntax-highlighting-fix",
+    "language-injection-formatting",
+    "format-twig-inside-vue",
+    "vue",
+    "twig",
+    "cms",
+    "wordpress-tooling",
+    "drupal-tooling"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "peerDependencies": {
+    "prettier": "^3.0.0"
+  },
+  "scripts": {
+    "test": "vitest run --coverage",
+    "test:unit": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
+    "check": "npm run test",
+    "format:check": "prettier --check \"{src,test}/**/*.js\" \"*.md\"",
+    "format:write": "prettier --write \"{src,test}/**/*.js\" \"*.md\"",
+    "prepack": "npm run test"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^4.0.18",
+    "prettier": "^3.8.1",
+    "vitest": "^4.0.18"
+  }
+}

@@ -1,0 +1,78 @@
+# prettier-plugin-matryoshka
+
+## Short Summary
+Recursive, dynamic Prettier plugin that formats nested multi-language code blocks via `:::parserName` tags.
+
+## Installation
+`npm i -D prettier prettier-plugin-matryoshka` | `yarn add -D prettier prettier-plugin-matryoshka` | `pnpm add -D prettier prettier-plugin-matryoshka`
+
+## Usage Patterns
+
+### Vue + Twig
+```txt
+:::vue
+<template><div>{{ count }}</div></template>
+:::twig
+<div>{{ "hello"|capitalize }}</div>
+:::endtwig
+<script setup>const count = ref(0)</script>
+:::endvue
+```
+
+### HTML + CSS
+```txt
+:::html
+<div class="card">Hello</div>
+:::css
+.card { color: red; }
+:::endcss
+:::endhtml
+```
+
+### Markdown + JavaScript
+```txt
+:::markdown
+# Demo
+:::babel
+const sum = (a,b)=>a+b
+:::endbabel
+:::endmarkdown
+```
+
+## Configuration Schema
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "parser": { "const": "matryoshka" },
+    "plugins": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "matryoshkaParserOverrides": {
+      "description": "Per-parser Prettier overrides.",
+      "oneOf": [
+        { "type": "string", "description": "JSON string object" },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      ]
+    },
+    "matryoshkaLogLevel": {
+      "type": "string",
+      "enum": ["silent", "error", "warn", "info", "debug"],
+      "default": "silent"
+    },
+    "matryoshkaLogPrefix": {
+      "type": "string",
+      "default": "[matryoshka]"
+    }
+  },
+  "required": ["parser"]
+}
+```
