@@ -7,6 +7,17 @@ Versioning.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-02-09
+
+### Fixed
+
+- Preserved nested marker integrity when outer parser formatting mutates
+  embedded block markers.
+- Added syntax-safe fallback when nested marker structure changes after format.
+- Preserved closing-tag line endings in rendered blocks to avoid marker/content
+  concatenation in fallback flows.
+- Expanded tests for nested marker mutation and invalid-close edge cases.
+
 ## [0.1.0] - 2026-02-09
 
 ### Added

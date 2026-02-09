@@ -1,6 +1,6 @@
 {
   "name": "prettier-plugin-matryoshka",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Recursive Prettier plugin for embedded code formatting across nested multi-language blocks.",
   "license": "MIT",
   "repository": {
