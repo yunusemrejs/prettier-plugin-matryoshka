@@ -41,6 +41,8 @@ export const mockParserPlugin = {
     mocktwig: createMockParser("mocktwig"),
     python: createMockParser("python"),
     passthrough: createMockParser("passthrough"),
+    retag: createMockParser("retag"),
+    brokenclose: createMockParser("brokenclose"),
     strict: createMockParser("strict", {
       shouldRejectNestedMarkers: true,
       rejectPattern: /\bBAD\b/u,
@@ -61,6 +63,16 @@ export const mockParserPlugin = {
         const normalized = normalizeSource(node.source);
         const tabWidth = options.tabWidth ?? 2;
         const indent = " ".repeat(tabWidth);
+
+        if (node.parser === "retag") {
+          return normalized
+            .replace(/:::mocktwig/gu, ":::retagged")
+            .replace(/:::endmocktwig/gu, ":::endretagged");
+        }
+
+        if (node.parser === "brokenclose") {
+          return normalized.replace(/:::endmocktwig/gu, ":::endmocktwigBROKEN");
+        }
 
         if (normalized.length === 0) {
           return `/*${node.parser}|tabWidth=${tabWidth}*/`;

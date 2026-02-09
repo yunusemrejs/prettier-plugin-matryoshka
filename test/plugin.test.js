@@ -6,6 +6,7 @@ import {
   computeCommonIndent,
   createMatryoshkaPrinter,
   getSharedState,
+  hasValidNestedMarkers,
   normalizeLogLevel,
   normalizeParserOverrides,
   parseMatryoshka,
@@ -48,12 +49,95 @@ describe("matryoshka parser", () => {
 
       :::mocktwig
         /*mocktwig|tabWidth=2*/
-          {{ \"hello\"|capitalize }}
+          {{ "hello"|capitalize }}
       :::endmocktwig
+
       /*mockvue|tabWidth=2*/
         <script> const count = 1 </script>
       :::endmockvue"
     `);
+  });
+
+  it("preserves nested markers when outer parser rewrites unknown marker tokens", async () => {
+    const source = `:::vue
+<template>
+  <button @click="count++"> {{ count }} </button>
+</template>
+
+:::css
+.btn { color: red; }
+:::endcss
+
+<script setup>
+const count = ref(0)
+</script>
+:::endvue`;
+
+    const result = await prettier.format(source, {
+      parser: "matryoshka",
+      plugins: [plugin],
+    });
+
+    expect(result).toContain("\n:::css\n");
+    expect(result).toContain("\n:::endcss\n");
+    expect(result).not.toContain(":::css .btn");
+
+    const ast = parseMatryoshka(result);
+    const [vueBlock] = ast.children;
+    const cssChild = vueBlock.children.find((child) => child.type === "Block");
+    expect(cssChild?.parser).toBe("css");
+  });
+
+  it("keeps stable nested marker order when full formatting succeeds", async () => {
+    const source = `:::passthrough
+before
+:::mocktwig
+  {{ value }}
+:::endmocktwig
+after
+:::endpassthrough`;
+
+    const result = await formatMatryoshka(source);
+    const ast = parseMatryoshka(result);
+    const [outerBlock] = ast.children;
+    const nestedParsers = outerBlock.children
+      .filter((child) => child.type === "Block")
+      .map((child) => child.parser);
+
+    expect(nestedParsers).toEqual(["mocktwig"]);
+    expect(result).toContain("/*passthrough|tabWidth=2*/");
+  });
+
+  it("falls back when nested parser names are rewritten", async () => {
+    const source = `:::retag
+before
+:::mocktwig
+  {{ value }}
+:::endmocktwig
+after
+:::endretag`;
+
+    const result = await formatMatryoshka(source);
+
+    expect(result).toContain(":::mocktwig");
+    expect(result).toContain(":::endmocktwig");
+    expect(result).not.toContain(":::retagged");
+  });
+
+  it("falls back when nested marker syntax becomes invalid", async () => {
+    const source = `:::brokenclose
+before
+:::mocktwig
+  {{ value }}
+:::endmocktwig
+after
+:::endbrokenclose`;
+
+    const result = await formatMatryoshka(source);
+
+    expect(() => parseMatryoshka(result)).not.toThrow();
+    expect(result).toContain(":::endmocktwig");
+    expect(result).not.toContain(":::endmocktwigBROKEN");
   });
 
   it("inherits global options and applies parser-specific overrides", async () => {
@@ -323,6 +407,16 @@ describe("core helpers", () => {
     expect(() => normalizeLogLevel("trace")).toThrow(
       /matryoshkaLogLevel must be one of: silent, error, warn, info, debug\./u,
     );
+  });
+
+  it("validates nested marker stack ordering", () => {
+    expect(
+      hasValidNestedMarkers(":::alpha\nbody\n:::endalpha\n:::beta\n:::endbeta"),
+    ).toBe(true);
+    expect(hasValidNestedMarkers(":::endalpha\n:::alpha\n:::endalpha")).toBe(
+      false,
+    );
+    expect(hasValidNestedMarkers(":::alpha\n:::endbeta")).toBe(false);
   });
 
   it("serializes diagnostic logs safely", () => {

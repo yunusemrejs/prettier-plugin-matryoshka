@@ -153,6 +153,7 @@ function newBlock({ parser, openIndent, start, startLine, startColumn }) {
     type: "Block",
     parser,
     openIndent,
+    closeLineEnding: "",
     start,
     end: start,
     startLine,
@@ -174,7 +175,7 @@ export function parseMatryoshka(source, options = {}) {
   let lineNumber = 1;
 
   for (const lineWithEnding of lines) {
-    const [line] = splitLineEnding(lineWithEnding);
+    const [line, lineEnding] = splitLineEnding(lineWithEnding);
     const endMatch = END_TAG_PATTERN.exec(line);
 
     if (endMatch) {
@@ -209,6 +210,8 @@ export function parseMatryoshka(source, options = {}) {
       }
 
       activeBlock.end = offset + lineWithEnding.length;
+      activeBlock.closeLineEnding =
+        lineEnding.length === 0 ? "" : NORMALIZED_LINE_ENDING;
       stack.pop();
       offset += lineWithEnding.length;
       lineNumber += 1;
@@ -495,15 +498,20 @@ export function addIndent(text, indent) {
     .join("");
 }
 
-function wrapWithParserTags(parserName, openIndent, body) {
+function wrapWithParserTags(
+  parserName,
+  openIndent,
+  body,
+  closeLineEnding = "",
+) {
   const openTag = `${openIndent}:::${parserName}`;
   const closeTag = `${openIndent}:::end${parserName}`;
 
   if (body.length === 0) {
-    return `${openTag}${NORMALIZED_LINE_ENDING}${closeTag}`;
+    return `${openTag}${NORMALIZED_LINE_ENDING}${closeTag}${closeLineEnding}`;
   }
 
-  return `${openTag}${NORMALIZED_LINE_ENDING}${body}${NORMALIZED_LINE_ENDING}${closeTag}`;
+  return `${openTag}${NORMALIZED_LINE_ENDING}${body}${NORMALIZED_LINE_ENDING}${closeTag}${closeLineEnding}`;
 }
 
 function isParserResolutionError(error) {
@@ -558,6 +566,67 @@ async function tryFormatSource(
   }
 }
 
+function extractParserSequence(source) {
+  const sequence = [];
+  for (const lineWithEnding of splitIntoLines(source)) {
+    const [line] = splitLineEnding(lineWithEnding);
+    const startMatch = START_TAG_PATTERN.exec(line);
+    if (!startMatch) {
+      continue;
+    }
+
+    sequence.push(startMatch[2]);
+  }
+
+  return sequence;
+}
+
+export function hasValidNestedMarkers(source) {
+  const parserStack = [];
+
+  for (const lineWithEnding of splitIntoLines(source)) {
+    const [line] = splitLineEnding(lineWithEnding);
+    const endMatch = END_TAG_PATTERN.exec(line);
+    if (endMatch) {
+      if (parserStack.length === 0) {
+        return false;
+      }
+
+      const activeParser = parserStack[parserStack.length - 1];
+      if (activeParser !== endMatch[2]) {
+        return false;
+      }
+
+      parserStack.pop();
+      continue;
+    }
+
+    const startMatch = START_TAG_PATTERN.exec(line);
+    if (startMatch) {
+      parserStack.push(startMatch[2]);
+    }
+  }
+
+  return parserStack.length === 0;
+}
+
+function hasStableNestedStructure(original, formatted) {
+  const originalSequence = extractParserSequence(original);
+  const formattedSequence = extractParserSequence(formatted);
+  if (originalSequence.length !== formattedSequence.length) {
+    return false;
+  }
+
+  const sameSequence = originalSequence.every((parser, index) => {
+    return parser === formattedSequence[index];
+  });
+  if (!sameSequence) {
+    return false;
+  }
+
+  return hasValidNestedMarkers(formatted);
+}
+
 async function renderNode(node, options, sharedState) {
   if (node.type === "Text") {
     return normalizeLineEndings(node.value, sharedState.lineEnding);
@@ -594,14 +663,36 @@ export async function renderBlock(block, options, sharedState) {
   const rawBody = renderedSegments.map((segment) => segment.value).join("");
   const commonIndent = computeCommonIndent(rawBody);
   const dedentedBody = removeIndent(rawBody, commonIndent);
+  const hasNestedBlocks = renderedSegments.some(
+    (segment) => segment.type === "block",
+  );
 
-  const fullFormatAttempt = await tryFormatSource(
+  let fullFormatAttempt = await tryFormatSource(
     dedentedBody,
     block.parser,
     options,
     sharedState.parserOverrides,
-    renderedSegments.some((segment) => segment.type === "block"),
+    hasNestedBlocks,
   );
+
+  if (
+    hasNestedBlocks &&
+    fullFormatAttempt.success &&
+    !hasStableNestedStructure(dedentedBody, fullFormatAttempt.value)
+  ) {
+    sharedState.log(
+      "warn",
+      "Nested marker structure changed after formatting",
+      {
+        parser: block.parser,
+      },
+    );
+    fullFormatAttempt = {
+      value: dedentedBody,
+      success: false,
+      reason: "nested-structure-changed",
+    };
+  }
 
   if (!fullFormatAttempt.success) {
     sharedState.log("warn", "Block formatting failed", {
@@ -611,10 +702,7 @@ export async function renderBlock(block, options, sharedState) {
   }
 
   let formattedDedentedBody = fullFormatAttempt.value;
-  if (
-    !fullFormatAttempt.success &&
-    renderedSegments.some((segment) => segment.type === "block")
-  ) {
+  if (!fullFormatAttempt.success && hasNestedBlocks) {
     sharedState.log("info", "Applying segmented fallback formatting", {
       parser: block.parser,
     });
@@ -660,6 +748,7 @@ export async function renderBlock(block, options, sharedState) {
     block.parser,
     block.openIndent,
     finalBody,
+    block.closeLineEnding,
   );
 
   sharedState.blockCache.set(block, renderedBlock);
@@ -711,7 +800,12 @@ export function createMatryoshkaPrinter() {
 
       const renderedChildren = path.map(print, "children").join("");
       const finalBody = removeSingleTrailingLineEnding(renderedChildren);
-      return wrapWithParserTags(node.parser, node.openIndent, finalBody);
+      return wrapWithParserTags(
+        node.parser,
+        node.openIndent,
+        finalBody,
+        node.closeLineEnding,
+      );
     },
 
     /**
