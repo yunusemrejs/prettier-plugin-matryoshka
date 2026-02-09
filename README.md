@@ -113,6 +113,20 @@ npm run test:watch
 npm run format:check
 ```
 
+## Release
+
+For maintainers:
+
+1. Ensure `package.json` version and `CHANGELOG.md` are updated.
+2. Run release checks locally: `npm run release:check`.
+3. Create and push a version tag:
+   - `git tag -a v0.1.0 -m "Release v0.1.0"`
+   - `git push origin v0.1.0`
+
+On tag push, GitHub Actions runs `.github/workflows/release.yml` to validate,
+publish to npm, and create a GitHub Release. Set `NPM_TOKEN` in repository
+secrets before tagging.
+
 ## Open Source Standards
 
 - Contribution guide: `CONTRIBUTING.md`

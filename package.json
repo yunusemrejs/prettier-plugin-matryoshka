@@ -50,12 +50,17 @@
   "peerDependencies": {
     "prettier": "^3.0.0"
   },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "test": "vitest run --coverage",
     "test:unit": "vitest run",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
     "check": "npm run test",
+    "release:check": "npm run format:check && npm test && npm pack --dry-run",
     "format:check": "prettier --check \"{src,test}/**/*.js\" \"*.md\"",
     "format:write": "prettier --write \"{src,test}/**/*.js\" \"*.md\"",
     "prepack": "npm run test"
