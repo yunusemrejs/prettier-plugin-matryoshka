@@ -66,8 +66,8 @@
     "prepack": "npm run test"
   },
   "devDependencies": {
-    "@vitest/coverage-v8": "^4.0.18",
+    "@vitest/coverage-v8": "^5.1.1",
     "prettier": "^3.8.1",
-    "vitest": "^4.0.18"
+    "vitest": "^5.1.1"
   }
 }
